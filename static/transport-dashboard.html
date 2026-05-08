@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J-Star Transport Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+    :root {
+      --bg: #0f172a;
+      --surface: rgba(15, 23, 42, 0.8);
+      --surface2: rgba(30, 41, 59, 0.5);
+      --surface3: rgba(51, 65, 85, 0.4);
+      --border: rgba(255, 255, 255, 0.06);
+      --border2: rgba(255, 255, 255, 0.1);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --dim: #475569;
+      --accent: #818cf8;
+      --accent-glow: rgba(129, 140, 248, 0.2);
+      --green: #34d399;
+      --green-glow: rgba(52, 211, 153, 0.15);
+      --orange: #fb923c;
+      --red: #f87171;
+      --purple: #a78bfa;
+      --font: 'DM Sans', sans-serif;
+      --mono: 'DM Mono', monospace;
+      --radius: 12px;
+      --radius-lg: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      font-size: 14px;
+      overflow-x: auto;
+    }
+
+    /* ── SMOOTHNESS ── */
+    .page {
+      display: none;
+      animation: pageFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes pageFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .nav-item,
+    .nav-file-item,
+    .btn,
+    .card,
+    .ov-file-card,
+    .file-card {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card:hover,
+    .ov-file-card:hover,
+    .file-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    /* ── LAYOUT ── */
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 240px;
+      min-height: 100vh;
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 10;
+      padding: 0 12px;
+    }
+
+    .logo {
+      padding: 24px 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #818cf8 0%, #34d399 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      box-shadow: 0 8px 16px rgba(129, 140, 248, 0.3);
+    }
+
+    .logo-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      color: #fff;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .nav {
+      padding: 10px 8px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-section {
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      padding: 10px 10px 5px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      margin-bottom: 4px;
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      transform: translateX(4px);
+    }
+
+    .nav-item.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      font-weight: 600;
+    }
+
+    .nav-icon {
+      width: 16px;
+      text-align: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    .nav-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    .nav-del {
+      margin-left: auto;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--dim);
+      font-size: 13px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      line-height: 1;
+    }
+
+    .nav-del:hover {
+      color: var(--red);
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .nav-file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 1px;
+      transition: all 0.15s;
+    }
+
+    .nav-file-item:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .nav-file-item.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .nav-file-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .storage-bar-wrap {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .storage-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .storage-track {
+      background: var(--surface2);
+      border-radius: 4px;
+      height: 3px;
+      overflow: hidden;
+    }
+
+    .storage-fill {
+      height: 100%;
+      background: var(--green);
+      border-radius: 4px;
+      transition: width 0.5s;
+    }
+
+    /* ── MAIN ── */
+    .main {
+      margin-left: 240px;
+      padding: 20px 32px;
+      width: calc(100% - 240px);
+      min-width: 0;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 2px 0;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .page-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* ── CARDS ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 11px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .card:hover {
+      border-color: var(--border2);
+      background: var(--surface2);
+    }
+
+    .card-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .card-value {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .card-change {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .cv-blue {
+      color: var(--accent);
+    }
+
+    .cv-green {
+      color: var(--green);
+    }
+
+    .cv-orange {
+      color: var(--orange);
+    }
+
+    .cv-red {
+      color: var(--red);
+    }
+
+    /* ── CHARTS ── */
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .chart-box {
+      background: var(--surface);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .chart-box.full {
+      grid-column: 1/-1;
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 160px;
+    }
+
+    /* ── TABLE ── */
+    .table-box {
+      background: var(--surface);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-header {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tit {
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 8px 11px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+      letter-spacing: 0.4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      font-size: 12px;
+      padding: 6px 11px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .overflow-x {
+      overflow-x: auto;
+    }
+
+    /* ── INPUTS & BTNS ── */
+    .sinput {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 11px;
+      border-radius: 7px;
+      font-size: 12px;
+      width: 180px;
+      font-family: var(--font);
+    }
+
+    .sinput:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: var(--font);
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+      transform: scale(1.03);
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 11.5px;
+    }
+
+    .btn-danger {
+      background: rgba(248, 113, 113, 0.08);
+      color: var(--red);
+      border: 1px solid rgba(248, 113, 113, 0.18);
+      padding: 5px 11px;
+      border-radius: 7px;
+      font-size: 11.5px;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: var(--font);
+    }
+
+    .btn-danger:hover {
+      background: rgba(248, 113, 113, 0.15);
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 13px;
+      border-radius: 7px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: var(--font);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--border2);
+    }
+
+    /* ── UPLOAD PAGE ── */
+    .upload-drop-zone {
+      border: 2px dashed var(--border2);
+      border-radius: var(--radius-lg);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface);
+      margin-bottom: 20px;
+    }
+
+    .upload-drop-zone:hover,
+    .upload-drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: scale(1.01);
+    }
+
+    .upload-drop-zone.processing {
+      pointer-events: none;
+      opacity: 0.7;
+    }
+
+    .upload-drop-zone.processing .dz-icon {
+      animation: rotatePulse 1.5s infinite linear;
+    }
+
+    @keyframes rotatePulse {
+      0% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.7;
+      }
+
+      50% {
+        transform: scale(1.2) rotate(180deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 0.7;
+      }
+    }
+
+    .upload-drop-zone input[type=file] {
+      display: none;
+    }
+
+    .dz-icon {
+      font-size: 44px;
+      margin-bottom: 14px;
+      opacity: 0.7;
+    }
+
+    .dz-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .dz-sub {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .dz-btn {
+      display: inline-block;
+      margin-top: 16px;
+      background: var(--accent);
+      color: #fff;
+      padding: 9px 22px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .uploaded-files-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .file-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .file-card:hover {
+      border-color: var(--accent);
+    }
+
+    .file-card.active {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .file-card-icon {
+      font-size: 22px;
+      margin-bottom: 8px;
+    }
+
+    .file-card-name {
+      font-size: 12.5px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+
+    .file-card-meta {
+      font-size: 10.5px;
+      color: var(--muted);
+    }
+
+    .file-card-del {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--dim);
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .file-card-del:hover {
+      color: var(--red);
+      background: rgba(248, 113, 113, 0.1);
+    }
+
+    .info-banner {
+      background: var(--green-glow);
+      border: 1px solid rgba(52, 211, 153, 0.2);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+      margin-bottom: 14px;
+      font-size: 12px;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: rgba(26, 30, 46, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 12.5px;
+      z-index: 999;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 320px;
+      pointer-events: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.success {
+      border-color: rgba(52, 211, 153, 0.3);
+      color: var(--green);
+    }
+
+    .toast.error {
+      border-color: rgba(248, 113, 113, 0.3);
+      color: var(--red);
+    }
+
+    .toast.info {
+      border-color: rgba(91, 143, 249, 0.3);
+      color: var(--accent);
+    }
+
+    /* ── AI CHATBOT ── */
+    .ai-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 14px;
+      height: calc(100vh - 130px);
+    }
+
+    .chat-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .chat-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 5px var(--green);
+    }
+
+    .chat-title {
+      font-size: 13px;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .chat-sub {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .chat-clear-btn {
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: var(--font);
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+
+    .chat-clear-btn:hover {
+      color: var(--red);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .chat-empty-icon {
+      font-size: 38px;
+      margin-bottom: 10px;
+      opacity: 0.35;
+    }
+
+    .chat-empty-text {
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .msg {
+      display: flex;
+      gap: 7px;
+      max-width: 100%;
+      animation: fadeUp 0.2s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .msg.user {
+      flex-direction: row-reverse;
+    }
+
+    .msg-av {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .msg.user .msg-av {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid rgba(91, 143, 249, 0.3);
+    }
+
+    .msg.ai .msg-av {
+      background: var(--green-glow);
+      color: var(--green);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      font-size: 13px;
+    }
+
+    .msg-bubble {
+      max-width: 84%;
+      padding: 9px 13px;
+      border-radius: 11px;
+      font-size: 12.5px;
+      line-height: 1.65;
+    }
+
+    .msg.user .msg-bubble {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 11px 11px 3px 11px;
+    }
+
+    .msg.ai .msg-bubble {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 11px 11px 11px 3px;
+    }
+
+    .msg-time {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    .msg.user .msg-time {
+      text-align: right;
+    }
+
+    .typing-dots {
+      display: flex;
+      gap: 3px;
+      padding: 3px 1px;
+    }
+
+    .typing-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--muted);
+      animation: bounce 1.2s infinite;
+    }
+
+    .typing-dots span:nth-child(2) {
+      animation-delay: .2s;
+    }
+
+    .typing-dots span:nth-child(3) {
+      animation-delay: .4s;
+    }
+
+    @keyframes bounce {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+      }
+
+      30% {
+        transform: translateY(-4px);
+      }
+    }
+
+    .chat-input-area {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 7px;
+      align-items: flex-end;
+    }
+
+    .chat-textarea {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 11px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-family: var(--font);
+      resize: none;
+      min-height: 36px;
+      max-height: 90px;
+      line-height: 1.5;
+    }
+
+    .chat-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .chat-send-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 15px;
+      flex-shrink: 0;
+      transition: opacity .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chat-send-btn:hover {
+      opacity: 0.85;
+    }
+
+    .chat-send-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .ai-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .ai-side-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+    }
+
+    .ai-side-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+
+    .quick-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--font);
+      margin-bottom: 5px;
+      transition: all .15s;
+      line-height: 1.4;
+    }
+
+    .quick-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .quick-btn:last-child {
+      margin-bottom: 0;
+    }
+
+    .ds-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+    }
+
+    .ds-row:last-child {
+      border-bottom: none;
+    }
+
+    .ds-name {
+      color: var(--muted);
+    }
+
+    .ds-val {
+      font-weight: 600;
+      font-family: var(--mono);
+      color: var(--text);
+    }
+
+    .ds-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-left: 5px;
+    }
+
+    /* ── OVERVIEW ── */
+    .ov-files-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .ov-file-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .ov-file-card:hover {
+      border-color: var(--accent);
+    }
+
+    .ov-file-card-icon {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    .ov-file-card-name {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ov-file-card-meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    /* ── PDF EXPORT HELPERS ── */
+    .exporting-pdf .overflow-x,
+    .exporting-pdf .charts,
+    .exporting-pdf .cards {
+      overflow: visible !important;
+      max-height: none !important;
+      display: block !important;
+    }
+
+    .exporting-pdf .data-table {
+      table-layout: auto !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <!-- ── SIDEBAR ── -->
+    <div class="sidebar">
+      <div class="logo">
+        <div class="logo-row">
+          <div class="logo-icon">⚡</div>
+          <div>
+            <div class="logo-title">J-Star Transport</div>
+            <div class="logo-sub" id="sidebar-date"></div>
+          </div>
+        </div>
+      </div>
+      <nav class="nav">
+        <div class="nav-section">Main</div>
+        <div class="nav-item active" onclick="showMain('overview',this)"><span class="nav-icon">📊</span> Overview</div>
+        <div class="nav-item" onclick="showMain('upload',this)"><span class="nav-icon">📁</span> Upload Data</div>
+        <div class="nav-item" onclick="showMain('history',this)"><span class="nav-icon">🕒</span> Upload History</div>
+        <div class="nav-item" onclick="showMain('ai',this)"><span class="nav-icon">🤖</span> AI Assistant</div>
+        <div class="nav-section" id="files-nav-section" style="display:none">Uploaded Files</div>
+        <div id="files-nav-list"></div>
+      </nav>
+      <div class="storage-bar-wrap">
+        <div class="storage-label"><span>Storage</span><span id="storage-pct">0%</span></div>
+        <div class="storage-track">
+          <div class="storage-fill" id="storage-fill" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MAIN ── -->
+    <div class="main">
+
+      <!-- OVERVIEW -->
+      <div id="page-overview" class="page active">
+        <div class="topbar">
+          <div>
+            <div class="page-title">Dashboard Overview</div>
+            <div class="page-sub" id="overview-date"></div>
+          </div>
+          <button class="btn btn-sm" onclick="exportToPDF('page-overview', 'Dashboard_Overview_Report')">📥 Download PDF
+            Report</button>
+        </div>
+        <div class="cards">
+          <div class="card">
+            <div class="card-label">Files Loaded</div>
+            <div class="card-value cv-blue" id="ov-files">0</div>
+            <div class="card-change">datasets</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Total Records</div>
+            <div class="card-value cv-green" id="ov-records">0</div>
+            <div class="card-change">rows across all files</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Total Columns</div>
+            <div class="card-value cv-orange" id="ov-cols">0</div>
+            <div class="card-change">fields detected</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Numeric Fields</div>
+            <div class="card-value" id="ov-nums">0</div>
+            <div class="card-change">auto-charted</div>
+          </div>
+        </div>
+        <div id="ov-empty" style="text-align:center;padding:60px 20px;color:var(--muted);">
+          <div style="font-size:40px;margin-bottom:14px;opacity:0.3;">📂</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:8px;">No data uploaded yet</div>
+          <div style="font-size:12.5px;margin-bottom:20px;">Upload any CSV file to see charts and insights</div>
+          <button class="btn" onclick="showMain('upload',document.querySelector('.nav-item:nth-child(2))'))">+ Upload
+            Data</button>
+        </div>
+        <div id="ov-files-grid" class="ov-files-grid" style="display:none"></div>
+        <div id="ov-charts" class="charts" style="display:none"></div>
+      </div>
+
+      <!-- HISTORY PAGE -->
+      <div id="page-history" class="page">
+        <div class="topbar">
+          <div>
+            <div class="page-title">Upload History</div>
+            <div class="page-sub">Comprehensive history of all data uploads</div>
+          </div>
+        </div>
+        <div class="table-box">
+          <div class="table-header">
+            <span class="tit">Uploads</span>
+          </div>
+          <div class="overflow-x">
+            <table class="data-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>File Name</th>
+                  <th>Date</th>
+                  <th>Day</th>
+                  <th>Month</th>
+                  <th>Time</th>
+                  <th>Total Rows</th>
+                  <th>Columns Detected</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- UPLOAD PAGE -->
+      <div id="page-upload" class="page">
+        <div class="topbar">
+          <div>
+            <div class="page-title">Upload Data</div>
+            <div class="page-sub">CSV and Excel files supported — multi-format auto-detection</div>
+          </div>
+        </div>
+        <div class="upload-drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept=".csv,.xlsx,.xls" multiple onchange="handleFiles(this.files)">
+          <div class="dz-icon" id="dz-icon">📂</div>
+          <div class="dz-title" id="dz-title">Drop your files here</div>
+          <div class="dz-sub" id="dz-sub">Upload CSV or Excel (.xlsx, .xls) — data tables, charts and insights
+            are<br>generated automatically from your
+            columns.<br>Multiple files supported.</div>
+          <label class="dz-btn" for="file-input" id="dz-btn-label">Choose Files</label>
+        </div>
+        <div id="upload-file-list"></div>
+      </div>
+
+      <!-- FILE DATA PAGE (dynamic) -->
+      <div id="page-filedata" class="page">
+        <div class="topbar">
+          <div>
+            <div class="page-title" id="fd-title">File Data</div>
+            <div class="page-sub" id="fd-sub"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input class="sinput" placeholder="Search table..." oninput="filterTable('fd-table',this.value)"
+              id="fd-search">
+            <button class="btn-ghost btn-sm" onclick="exportToPDF('page-filedata', 'File_Data_Report')">📉 PDF</button>
+            <button class="btn-danger" onclick="deleteCurrentFile()">🗑 Remove</button>
+          </div>
+        </div>
+        <div class="cards" id="fd-cards"></div>
+        <div class="charts" id="fd-charts"></div>
+        <div class="table-box">
+          <div class="table-header">
+            <span class="tit" id="fd-table-title">Records</span>
+          </div>
+          <div class="overflow-x">
+            <table class="data-table" id="fd-table">
+              <thead id="fd-thead"></thead>
+              <tbody id="fd-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI PAGE -->
+      <div id="page-ai" class="page">
+        <div class="topbar">
+          <div>
+            <div class="page-title">AI Assistant</div>
+            <div class="page-sub">Ask questions about any of your uploaded data</div>
+          </div>
+        </div>
+        <div class="ai-layout">
+          <div class="chat-panel">
+            <div class="chat-header">
+              <div class="chat-status-dot"></div>
+              <div style="flex:1">
+                <div class="chat-title">J-Star Offline Analyst</div>
+                <div class="chat-sub">Offline Mode · Basic data understanding</div>
+              </div>
+              <button class="chat-clear-btn" onclick="clearChat()">Clear</button>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+              <div class="chat-empty" id="chat-empty">
+                <div class="chat-empty-icon">🤖</div>
+                <div class="chat-empty-text">Ask me anything about your uploaded CSVs.<br>I analyze all files you've
+                  loaded.</div>
+              </div>
+            </div>
+            <div class="chat-input-area">
+              <div class="chat-input-row">
+                <textarea class="chat-textarea" id="chat-input" placeholder="Ask about your data..." rows="1"
+                  onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+                <button class="chat-send-btn" id="chat-send" onclick="sendChat()">↑</button>
+              </div>
+            </div>
+          </div>
+          <div class="ai-sidebar">
+            <div class="ai-side-card">
+              <div class="ai-side-title">Quick Questions</div>
+              <button class="quick-btn"
+                onclick="quickAsk('Give me a complete summary of all my uploaded data — key metrics, totals, and anything interesting.')">📊
+                Full summary</button>
+              <button class="quick-btn"
+                onclick="quickAsk('What numeric columns are present across my files? Show the totals and averages for each.')">🔢
+                Numeric analysis</button>
+              <button class="quick-btn"
+                onclick="quickAsk('What are the top 5 rows by the largest numeric value in each file?')">🏆 Top
+                records</button>
+              <button class="quick-btn"
+                onclick="quickAsk('Are there any data quality issues, missing values, or anomalies I should know about?')">⚠️
+                Data quality check</button>
+              <button class="quick-btn"
+                onclick="quickAsk('Show a breakdown of categories in my data and their counts.')">📂 Category
+                breakdown</button>
+              <button class="quick-btn"
+                onclick="quickAsk('What trends can you identify in my data? Are there any patterns over time?')">📈
+                Trend analysis</button>
+            </div>
+            <div class="ai-side-card">
+              <div class="ai-side-title">Loaded Files</div>
+              <div id="ai-file-status">
+                <div style="font-size:11px;color:var(--muted)">No files uploaded yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /app -->
+
+  <div class="toast" id="toast"></div>
+<!-- ✅ PASTE HERE -->
+<input type="file" id="file-input">
+<div id="output"></div>
+
+  <script>
+
+async function uploadFileToAPI(file) {
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("http://127.0.0.1:8000/upload", {
+        method: "POST",
+        body: formData
+    });
+
+    const result = await response.json();
+
+    console.log(result);
+    displayTable(result.data);
+}
+
+document.getElementById("file-input").addEventListener("change", async function(e) {
+
+    const file = e.target.files[0];
+    await uploadFileToAPI(file);
+
+});
+
+    
+    // ══════════════════════════════════════════════
+    const COLORS = ['#5b8ff9', '#34d399', '#fb923c', '#f87171', '#a78bfa', '#67e8f9', '#fbbf24', '#ec4899'];
+    const SK_FILES = 'jstar_files_v3';
+    const CH = {};
+
+    // files: [{id, name, rows, columns, uploaded}]
+    let files = [];
+    let currentFileId = null;
+    let chatHistory = [];
+    let isChatLoading = false;
+
+    // ── UTILS ──
+    const globalChartTypes = ['bar', 'line'];
+    let globalChartIndex = 0;
+    window.getNextChartType = function () {
+      const type = globalChartTypes[globalChartIndex % globalChartTypes.length];
+      globalChartIndex++;
+      return type;
+    };
+
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+    function cl(v) { return v === null || v === undefined ? '' : String(v).trim(); }
+    function num(v) { const n = parseFloat(String(v).replace(/[^0-9.-]/g, '')); return isNaN(n) ? 0 : n; }
+    function isNumericCol(rows, col) { const vals = rows.map(r => cl(r[col])).filter(Boolean); if (!vals.length) return false; return vals.filter(v => /^-?[\d,]+\.?\d*$/.test(v.replace(/₹|,|\s/g, ''))).length / vals.length > 0.6; }
+    function isDateCol(rows, col) { const vals = rows.map(r => cl(r[col])).filter(Boolean).slice(0, 20); return vals.filter(v => !isNaN(Date.parse(v))).length / vals.length > 0.6; }
+    function colSum(rows, col) { return rows.map(r => num(r[col])).reduce((a, b) => a + b, 0); }
+    function colAvg(rows, col) { const s = colSum(rows, col); return rows.length ? s / rows.length : 0; }
+    function fmt(n) { if (Math.abs(n) >= 10000000) return (n / 10000000).toFixed(2) + 'Cr'; if (Math.abs(n) >= 100000) return (n / 100000).toFixed(2) + 'L'; if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K'; return Math.round(n).toLocaleString('en-IN'); }
+    function toast(msg, type = 'info') { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast ' + type + ' show'; setTimeout(() => t.classList.remove('show'), 3500); }
+    function getFileById(id) { return files.find(f => f.id === id); }
+
+    // ── STORAGE ──
+    function saveFiles() {
+      try {
+        // No longer capping at 5000 rows to ensure all user data is preserved
+        localStorage.setItem(SK_FILES, JSON.stringify(files));
+        updateStorage();
+      } catch (e) {
+        if (e.name === 'QuotaExceededError') toast('⚠️ Storage full — clear some files', 'error');
+      }
+    }
+
+    function loadFiles() {
+      try { const s = localStorage.getItem(SK_FILES); if (s) files = JSON.parse(s); } catch (e) { }
+    }
+
+    function updateStorage() {
+      try {
+        const size = (localStorage.getItem(SK_FILES) || '').length;
+        const pct = Math.min(100, Math.round(size / 51200 * 100));
+        document.getElementById('storage-pct').textContent = pct + '%';
+        document.getElementById('storage-fill').style.width = pct + '%';
+        document.getElementById('storage-fill').style.background = pct > 80 ? '#f87171' : '#34d399';
+      } catch (e) { }
+    }
+
+    // ── INIT ──
+    function boot() {
+      const now = new Date();
+      document.getElementById('sidebar-date').textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      document.getElementById('overview-date').textContent = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      loadFiles();
+      rebuildNav();
+      renderOverview();
+      setupDragDrop();
+    }
+
+    // ── DRAG & DROP ──
+    function setupDragDrop() {
+      const dz = document.getElementById('drop-zone');
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+      dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+    }
+
+    // ── FILE HANDLING ──
+    async function handleFiles(fileList) {
+      if (!fileList.length) return;
+      const dz = document.getElementById('drop-zone');
+      const dzIcon = document.getElementById('dz-icon');
+      const dzTitle = document.getElementById('dz-title');
+      const dzSub = document.getElementById('dz-sub');
+      const dzBtn = document.getElementById('dz-btn-label');
+
+      dz.classList.add('processing');
+      dzIcon.textContent = '⚙️';
+      dzTitle.textContent = 'Processing Files...';
+      dzSub.textContent = 'Please wait while we extract and analyze your data.';
+      dzBtn.style.display = 'none';
+
+      for (const file of Array.from(fileList)) {
+        try {
+          if (file.name.endsWith('.csv')) {
+            await parseCSV(file);
+          } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            await parseExcel(file);
+          } else {
+            toast('Unsupported format: ' + file.name, 'error');
+          }
+        } catch (err) {
+          console.error(err);
+          toast('❌ Error processing ' + file.name, 'error');
+        }
+      }
+
+      dz.classList.remove('processing');
+      dzIcon.textContent = '📂';
+      dzTitle.textContent = 'Drop your files here';
+      dzSub.innerHTML = 'Upload CSV or Excel (.xlsx, .xls) — data tables, charts and insights are<br>generated automatically from your columns.<br>Multiple files supported.';
+      dzBtn.style.display = 'inline-block';
+
+      saveFiles();
+      rebuildNav();
+      renderOverview();
+      renderUploadList();
+      updateAIFileStatus();
+    }
+
+    function parseCSV(file) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(file, {
+          header: true, skipEmptyLines: true, dynamicTyping: false,
+          complete: res => {
+            if (!res.data.length) { toast('Empty CSV: ' + file.name, 'error'); resolve(); return; }
+            processFileResult(file.name, res.data, res.meta.fields || []);
+            resolve();
+          },
+          error: err => { reject(err); }
+        });
+      });
+    }
+
+    function parseExcel(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.SheetNames[0];
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: "" });
+
+            if (!jsonData.length) { toast('Empty Excel: ' + file.name, 'error'); resolve(); return; }
+
+            const columns = Object.keys(jsonData[0]);
+            processFileResult(file.name, jsonData, columns);
+            resolve();
+          } catch (err) { reject(err); }
+        };
+        reader.onerror = err => reject(err);
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function processFileResult(fileName, data, columns) {
+      const now = new Date();
+      const uploadDate = now.toLocaleDateString('en-IN');
+      const uploadDay = now.toLocaleDateString('en-IN', { weekday: 'long' });
+      const uploadMonth = now.toLocaleDateString('en-IN', { month: 'long' });
+      const uploadTime = now.toLocaleTimeString('en-IN');
+
+      const existing = files.find(f => f.name === fileName);
+      if (existing) {
+        const prevCount = existing.rows.length;
+        existing.rows = [...existing.rows, ...data.map(r => ({ ...r }))];
+        existing.uploaded = now.toLocaleString('en-IN');
+        existing.uploadDate = uploadDate;
+        existing.uploadDay = uploadDay;
+        existing.uploadMonth = uploadMonth;
+        existing.uploadTime = uploadTime;
+        existing.columns = [...new Set([...existing.columns, ...columns])];
+        toast('🔄 ' + fileName + ': merged ' + (existing.rows.length - prevCount) + ' new rows', 'success');
+      } else {
+        const f = {
+          id: uid(),
+          name: fileName,
+          rows: data,
+          columns: columns,
+          uploaded: now.toLocaleString('en-IN'),
+          uploadDate: uploadDate,
+          uploadDay: uploadDay,
+          uploadMonth: uploadMonth,
+          uploadTime: uploadTime
+        };
+        files.push(f);
+        toast('✅ ' + fileName + ': ' + data.length + ' rows loaded', 'success');
+      }
+    }
+
+    function deleteFile(id) {
+      if (!confirm('Remove this file?')) return;
+      files = files.filter(f => f.id !== id);
+      if (currentFileId === id) currentFileId = null;
+      saveFiles();
+      rebuildNav();
+      renderOverview();
+      renderUploadList();
+      updateAIFileStatus();
+      // Go back to overview
+      showMain('overview', document.querySelector('.nav-item'));
+      toast('🗑 File removed', 'info');
+    }
+
+    function deleteCurrentFile() {
+      if (currentFileId) deleteFile(currentFileId);
+    }
+
+
+    async function exportToPDF(elementId, filename) {
+      const element = document.getElementById(elementId);
+      const isFileData = elementId === 'page-filedata';
+
+      const opt = {
+        margin: [10, 5, 10, 5],
+        filename: filename + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#0f172a',
+          logging: false,
+          onclone: function (clonedDoc) {
+            const ce = clonedDoc.getElementById(elementId);
+            if (ce) {
+              ce.style.background = '#0f172a';
+              ce.style.color = '#f8fafc';
+              ce.style.padding = '20px';
+
+              // Add a professional report header to the PDF
+              const header = clonedDoc.createElement('div');
+              header.style.cssText = 'border-bottom: 2px solid #312e81; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end;';
+              header.innerHTML = `
+                <div>
+                  <div style="font-size: 24px; font-weight: 800; color: #fff;">J-STAR TRANSPORT</div>
+                  <div style="font-size: 14px; color: #94a3b8;">${filename.replace(/_/g, ' ')}</div>
+                </div>
+                <div style="font-size: 12px; color: #64748b; text-align: right;">Generated on: ${new Date().toLocaleString()}</div>
+              `;
+              ce.prepend(header);
+
+              // Limit table rows for PDF reliability if there's a huge data table
+              const table = ce.querySelector('.data-table tbody');
+              if (table && table.children.length > 60) {
+                const total = table.children.length;
+                Array.from(table.children).slice(60).forEach(tr => tr.style.display = 'none');
+                const note = clonedDoc.createElement('div');
+                note.style.cssText = 'margin-top: 15px; padding: 10px; background: rgba(251, 146, 60, 0.1); border: 1px solid rgba(251, 146, 60, 0.3); border-radius: 8px; color: #fb923c; font-size: 12px; text-align: center;';
+                note.textContent = `⚠️ Report contains partial data (first 60 of ${total} records). Use CSV export for full dataset.`;
+                table.parentElement.parentElement.appendChild(note);
+              }
+            }
+            const style = clonedDoc.createElement('style');
+            style.textContent = `
+              * { 
+                backdrop-filter: none !important; 
+                -webkit-backdrop-filter: none !important;
+                animation: none !important;
+                transition: none !important;
+              }
+              body { background: #0f172a !important; color: #f8fafc !important; }
+              .sidebar { display: none !important; }
+              .main { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
+              .card, .chart-box, .table-box, .chat-panel, .ai-sidebar,
+              .ai-side-card, .upload-drop-zone, .file-card, .ov-file-card,
+              .info-banner, .sinput, .btn-ghost {
+                background: #1e293b !important;
+                border: 1px solid #334155 !important;
+                color: #f8fafc !important;
+                box-shadow: none !important;
+              }
+              .page-title, .page-sub, .tit, .chart-title, .card-label, .card-value {
+                color: #f8fafc !important;
+              }
+              .card-label, .page-sub, .ov-file-card-meta {
+                color: #94a3b8 !important;
+              }
+              .data-table th { background: #253347 !important; color: #94a3b8 !important; }
+              .data-table td { border-bottom: 1px solid #334155 !important; color: #f8fafc !important; }
+              canvas { filter: brightness(1.1); margin-bottom: 10px; }
+              .btn, .chat-input-row, .chat-clear-btn { display: none !important; }
+            `;
+            clonedDoc.head.appendChild(style);
+          }
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      try {
+        toast('👑 Generating Premium Report...', 'info');
+        element.classList.add('exporting-pdf');
+
+        const btns = element.querySelectorAll('button, .sinput, .search-container, .topbar button, .btn');
+        btns.forEach(b => b.style.visibility = 'hidden');
+
+        await new Promise(r => setTimeout(r, 1500));
+        await html2pdf().set(opt).from(element).save();
+
+        btns.forEach(b => b.style.visibility = 'visible');
+        element.classList.remove('exporting-pdf');
+        toast('✅ Premium Report Ready!', 'success');
+      } catch (e) {
+        element.classList.remove('exporting-pdf');
+        console.error(e);
+        toast('❌ Export failed', 'error');
+      }
+    }
+
+    // ── NAV ──
+    function rebuildNav() {
+      const section = document.getElementById('files-nav-section');
+      const list = document.getElementById('files-nav-list');
+      if (!files.length) { section.style.display = 'none'; list.innerHTML = ''; return; }
+      section.style.display = 'block';
+      list.innerHTML = files.map(f => `
+    <div class="nav-file-item ${f.id === currentFileId ? 'active' : ''}" id="navf-${f.id}" onclick="openFile('${f.id}',this)">
+      <span class="nav-icon">📄</span>
+      <span class="nav-file-name" title="${f.name}">${f.name.replace('.csv', '')}</span>
+      <button class="nav-del" onclick="event.stopPropagation();deleteFile('${f.id}')" title="Remove">×</button>
+    </div>`).join('');
+    }
+
+    // ── PAGE NAV ──
+    function showMain(name, el) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item,.nav-file-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      if (el) el.classList.add('active');
+      if (name === 'ai') updateAIFileStatus();
+      if (name === 'upload') renderUploadList();
+      if (name === 'history') renderHistory();
+    }
+
+    function openFile(id, el) {
+      currentFileId = id;
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item,.nav-file-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('page-filedata').classList.add('active');
+      if (el) el.classList.add('active');
+      renderFileData(id);
+    }
+
+    // ── OVERVIEW ──
+    function renderOverview() {
+      const totalRecords = files.reduce((a, f) => a + f.rows.length, 0);
+      const totalCols = [...new Set(files.flatMap(f => f.columns))].length;
+      const numericCols = files.reduce((a, f) => a + f.columns.filter(c => isNumericCol(f.rows, c)).length, 0);
+      document.getElementById('ov-files').textContent = files.length;
+      document.getElementById('ov-records').textContent = totalRecords.toLocaleString();
+      document.getElementById('ov-cols').textContent = totalCols;
+      document.getElementById('ov-nums').textContent = numericCols;
+
+      const empty = document.getElementById('ov-empty');
+      const grid = document.getElementById('ov-files-grid');
+      const charts = document.getElementById('ov-charts');
+
+      if (!files.length) {
+        empty.style.display = 'block'; grid.style.display = 'none'; charts.style.display = 'none'; return;
+      }
+      empty.style.display = 'none';
+      grid.style.display = 'grid';
+      grid.innerHTML = files.map(f => {
+        const numCols = f.columns.filter(c => isNumericCol(f.rows, c));
+        const topNum = numCols[0];
+        const total = topNum ? fmt(colSum(f.rows, topNum)) : '—';
+        return `<div class="ov-file-card" onclick="openFile('${f.id}',document.getElementById('navf-${f.id}'))">
+      <div class="ov-file-card-icon">📄</div>
+      <div class="ov-file-card-name">${f.name}</div>
+      <div class="ov-file-card-meta">${f.rows.length.toLocaleString()} rows · ${f.columns.length} cols${topNum ? ' · ' + topNum + ': ' + total : ''}</div>
+    </div>`;
+      }).join('');
+
+      // Overview charts — use different types of charts
+      const chartDivs = [];
+      files.slice(0, 6).forEach((f, idx) => {
+        const numCol = f.columns.find(c => isNumericCol(f.rows, c));
+        if (!numCol) return;
+        const catCol = f.columns.find(c => !isNumericCol(f.rows, c) && c !== numCol);
+        if (!catCol) return;
+        const byC = {};
+        f.rows.forEach(r => { const k = cl(r[catCol]).slice(0, 20) || '—'; byC[k] = (byC[k] || 0) + num(r[numCol]); });
+        const entries = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const cid = 'ovc_' + f.id;
+        const cType = window.getNextChartType ? window.getNextChartType() : 'doughnut';
+        chartDivs.push(`<div class="chart-box"><div class="chart-title">${f.name.replace('.csv', '')} — ${numCol} by ${catCol}</div><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`);
+        setTimeout(() => {
+          if (['pie', 'doughnut', 'polarArea'].includes(cType)) {
+            mkChart(cid, cType, entries.map(e => e[0]), [{ data: entries.map(e => e[1]), backgroundColor: COLORS, borderWidth: 0 }], dOpts());
+          } else if (cType === 'line' || cType === 'radar') {
+            mkChart(cid, cType, entries.map(e => e[0]), [{ label: numCol, data: entries.map(e => e[1]), borderColor: COLORS[idx % COLORS.length], backgroundColor: COLORS[idx % COLORS.length] + '33', fill: true }]);
+          } else {
+            mkChart(cid, cType, entries.map(e => e[0]), [{ label: numCol, data: entries.map(e => e[1]), backgroundColor: COLORS[idx % COLORS.length], borderRadius: 4 }]);
+          }
+        }, 50);
+      });
+      if (chartDivs.length) { charts.style.display = 'grid'; charts.innerHTML = chartDivs.join(''); }
+      else charts.style.display = 'none';
+    }
+
+    // ── FILE DATA PAGE ──
+    function renderFileData(id) {
+      const f = getFileById(id); if (!f) return;
+      document.getElementById('fd-title').textContent = f.name;
+      document.getElementById('fd-sub').textContent = f.rows.length.toLocaleString() + ' rows · ' + f.columns.length + ' columns · Uploaded ' + f.uploaded;
+      document.getElementById('fd-table-title').textContent = 'Records (' + f.rows.length.toLocaleString() + ')';
+
+      // Detect column types
+      const numCols = f.columns.filter(c => isNumericCol(f.rows, c));
+      const catCols = f.columns.filter(c => !isNumericCol(f.rows, c) && !isDateCol(f.rows, c));
+      const dateCols = f.columns.filter(c => isDateCol(f.rows, c) && !isNumericCol(f.rows, c));
+
+      // ── Summary cards ──
+      const cards = [];
+      cards.push({ label: 'Total Rows', value: f.rows.length.toLocaleString(), cls: '' });
+      cards.push({ label: 'Columns', value: f.columns.length, cls: '' });
+      numCols.slice(0, 2).forEach(c => {
+        cards.push({ label: 'Total ' + c.slice(0, 16), value: fmt(colSum(f.rows, c)), cls: 'cv-green' });
+        cards.push({ label: 'Avg ' + c.slice(0, 16), value: fmt(colAvg(f.rows, c)), cls: 'cv-orange' });
+      });
+      if (catCols.length) {
+        const uniq = [...new Set(f.rows.map(r => cl(r[catCols[0]])).filter(Boolean))].length;
+        cards.push({ label: 'Unique ' + catCols[0].slice(0, 14), value: uniq, cls: 'cv-blue' });
+      }
+      document.getElementById('fd-cards').innerHTML = cards.slice(0, 6).map(c =>
+        `<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls}">${c.value}</div></div>`).join('');
+
+      // ── Charts ──
+      const chartHTMLs = [];
+
+      // Chart 1: top categorical vs first numeric
+      if (numCols.length && catCols.length) {
+        const nc = numCols[0], cc = catCols[0];
+        const byC = {};
+        f.rows.forEach(r => { const k = cl(r[cc]).slice(0, 22) || '—'; byC[k] = (byC[k] || 0) + num(r[nc]); });
+        const entries = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const type = window.getNextChartType ? window.getNextChartType() : 'polarArea';
+        chartHTMLs.push({ id: 'fdc1', title: nc + ' by ' + cc, type: type, labels: entries.map(e => e[0]), data: entries.map(e => e[1]), color: COLORS[0] });
+      }
+      // Chart 2: second numeric col distribution OR second cat col
+      if (numCols.length > 1 && catCols.length) {
+        const nc = numCols[1], cc = catCols[0];
+        const byC = {};
+        f.rows.forEach(r => { const k = cl(r[cc]).slice(0, 22) || '—'; byC[k] = (byC[k] || 0) + num(r[nc]); });
+        const entries = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const type = window.getNextChartType ? window.getNextChartType() : 'doughnut';
+        chartHTMLs.push({ id: 'fdc2', title: nc + ' by ' + cc, type: type, labels: entries.map(e => e[0]), data: entries.map(e => e[1]) });
+      } else if (catCols.length > 1 && numCols.length) {
+        const nc = numCols[0], cc = catCols[1];
+        const byC = {};
+        f.rows.forEach(r => { const k = cl(r[cc]).slice(0, 22) || '—'; byC[k] = (byC[k] || 0) + num(r[nc]); });
+        const entries = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const type = window.getNextChartType ? window.getNextChartType() : 'pie';
+        chartHTMLs.push({ id: 'fdc2', title: nc + ' by ' + cc, type: type, labels: entries.map(e => e[0]), data: entries.map(e => e[1]) });
+      } else if (catCols.length) {
+        // frequency chart
+        const cc = catCols[0];
+        const byC = {}; f.rows.forEach(r => { const k = cl(r[cc]).slice(0, 22) || '—'; byC[k] = (byC[k] || 0) + 1; });
+        const entries = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const type = window.getNextChartType ? window.getNextChartType() : 'radar';
+        chartHTMLs.push({ id: 'fdc2', title: 'Count by ' + cc, type: type, labels: entries.map(e => e[0]), data: entries.map(e => e[1]) });
+      }
+      // Chart 3: date trend if available
+      if (dateCols.length && numCols.length) {
+        const dc = dateCols[0], nc = numCols[0];
+        const byD = {};
+        f.rows.forEach(r => {
+          const d = cl(r[dc]).slice(0, 10);
+          if (d && d.length >= 7) byD[d] = (byD[d] || 0) + num(r[nc]);
+        });
+        const sorted = Object.keys(byD).sort().slice(-30); // last 30 periods
+        if (sorted.length > 1) {
+          const type = window.getNextChartType ? window.getNextChartType() : 'line';
+          chartHTMLs.push({ id: 'fdc3', title: nc + ' over time (' + dc + ')', type: type, labels: sorted, data: sorted.map(k => byD[k]), color: COLORS[1], full: true });
+        }
+      }
+
+      if (chartHTMLs.length) {
+        document.getElementById('fd-charts').innerHTML = chartHTMLs.map(c =>
+          `<div class="chart-box${c.full ? ' full' : ''}"><div class="chart-title">${c.title}</div><div class="chart-wrap"${c.full ? ' style="height:180px"' : ''}><canvas id="${c.id}"></canvas></div></div>`).join('');
+        setTimeout(() => {
+          chartHTMLs.forEach((c, idx) => {
+            const isRadial = ['pie', 'doughnut', 'polarArea'].includes(c.type);
+            if (isRadial) {
+              mkChart(c.id, c.type, c.labels, [{ data: c.data, backgroundColor: COLORS, borderWidth: 0 }], dOpts());
+            } else if (c.type === 'line' || c.type === 'radar') {
+              mkChart(c.id, c.type, c.labels, [{ label: c.id, data: c.data, borderColor: c.color || COLORS[idx % COLORS.length], backgroundColor: (c.color || COLORS[idx % COLORS.length]) + '33', fill: true, tension: 0.4, pointRadius: 2 }]);
+            } else {
+              mkChart(c.id, c.type, c.labels, [{ label: c.id, data: c.data, backgroundColor: c.color || COLORS[idx % COLORS.length], borderRadius: 4 }]);
+            }
+          });
+        }, 50);
+      } else {
+        document.getElementById('fd-charts').innerHTML = '';
+      }
+
+      // ── Table ──
+      document.getElementById('fd-thead').innerHTML = '<tr>' + f.columns.map(c => `<th title="${c}">${c.slice(0, 18)}</th>`).join('') + '</tr>';
+      document.getElementById('fd-tbody').innerHTML = f.rows.slice(0, 500).map(r =>
+        '<tr>' + f.columns.map(c => {
+          const v = cl(r[c]);
+          const isNum = isNumericCol(f.rows, c);
+          return `<td title="${v}" style="${isNum ? 'color:var(--green);font-family:var(--mono)' : ''}">${v.slice(0, 40) || '—'}</td>`;
+        }).join('') + '</tr>').join('');
+      document.getElementById('fd-search').value = '';
+    }
+
+    function mkChart(id, type, labels, datasets, extra) {
+      if (CH[id]) { CH[id].destroy(); delete CH[id]; }
+      const c = document.getElementById(id); if (!c) return;
+      CH[id] = new Chart(c, {
+        type, data: { labels, datasets }, options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: (type !== 'pie' && type !== 'doughnut' && type !== 'polarArea' && type !== 'radar') ? {
+            x: { ticks: { color: '#6b7592', font: { size: 10 }, maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.03)' } },
+            y: { ticks: { color: '#6b7592', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.03)' } }
+          } : (type === 'polarArea' || type === 'radar' ? { r: { ticks: { display: false } } } : {}),
+          ...(extra || {})
+        }
+      });
+    }
+    function dOpts() { return { plugins: { legend: { display: true, position: 'bottom', labels: { color: '#6b7592', font: { size: 10 }, boxWidth: 8 } } } }; }
+
+    function filterTable(id, q) {
+      q = q.toLowerCase();
+      document.getElementById(id).querySelectorAll('tbody tr').forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    // ── UPLOAD LIST ──
+    function renderUploadList() {
+      const el = document.getElementById('upload-file-list');
+      if (!files.length) { el.innerHTML = ''; return; }
+      el.innerHTML = `<div style="margin-bottom:10px;font-size:12px;color:var(--muted);">Loaded Files</div>
+  <div class="uploaded-files-grid">`+
+        files.map(f => {
+          const numCols = f.columns.filter(c => isNumericCol(f.rows, c));
+          return `<div class="file-card ${f.id === currentFileId ? 'active' : ''}" onclick="openFile('${f.id}',document.getElementById('navf-${f.id}'))">
+      <button class="file-card-del" onclick="event.stopPropagation();deleteFile('${f.id}')">×</button>
+      <div class="file-card-icon">📄</div>
+      <div class="file-card-name">${f.name}</div>
+      <div class="file-card-meta">${f.rows.length.toLocaleString()} rows · ${f.columns.length} cols</div>
+      <div class="file-card-meta" style="margin-top:2px">${numCols.length} numeric · ${f.uploaded.slice(0, 16)}</div>
+    </div>`;
+        }).join('') + '</div>';
+    }
+
+    // ── HISTORY LIST ──
+    function renderHistory() {
+      const tb = document.getElementById('history-tbody');
+      if (!tb) return;
+      if (!files.length) {
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">No upload history found</td></tr>';
+        return;
+      }
+      tb.innerHTML = files.map(f => {
+        let d = f.uploadDate || '';
+        let day = f.uploadDay || '';
+        let m = f.uploadMonth || '';
+        let t = f.uploadTime || '';
+        if (!d && f.uploaded) {
+          try {
+            d = f.uploaded.split(',')[0] || '';
+            t = (f.uploaded.split(',')[1] || '').trim();
+          } catch (e) { }
+        }
+        return `<tr>
+          <td>${f.name}</td>
+          <td>${d}</td>
+          <td>${day}</td>
+          <td>${m}</td>
+          <td>${t}</td>
+          <td>${f.rows.length.toLocaleString()}</td>
+          <td>${f.columns.length}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── AI ASSISTANT ──
+    function updateAIFileStatus() {
+      const el = document.getElementById('ai-file-status');
+      if (!files.length) { el.innerHTML = '<div style="font-size:11px;color:var(--muted)">No files uploaded yet</div>'; return; }
+      el.innerHTML = files.map(f => `
+    <div class="ds-row">
+      <span class="ds-name" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${f.name}">${f.name.replace('.csv', '')}</span>
+      <div style="display:flex;align-items:center">
+        <span class="ds-val">${f.rows.length}</span>
+        <span class="ds-dot" style="background:var(--green);margin-left:5px"></span>
+      </div>
+    </div>`).join('');
+    }
+
+    function getDataSummaryForAI() {
+      return files.map(f => {
+        const numCols = f.columns.filter(c => isNumericCol(f.rows, c));
+        const catCols = f.columns.filter(c => !isNumericCol(f.rows, c));
+        const dateCols = f.columns.filter(c => isDateCol(f.rows, c) && !isNumericCol(f.rows, c));
+        const numStats = {};
+        numCols.forEach(c => { numStats[c] = { total: colSum(f.rows, c), avg: colAvg(f.rows, c), min: Math.min(...f.rows.map(r => num(r[c]))), max: Math.max(...f.rows.map(r => num(r[c]))) }; });
+        const catStats = {};
+        catCols.slice(0, 4).forEach(c => {
+          const byC = {}; f.rows.forEach(r => { const k = cl(r[c]).slice(0, 30) || '—'; byC[k] = (byC[k] || 0) + 1; });
+          catStats[c] = Object.entries(byC).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        });
+        const trendData = {};
+        if (dateCols.length > 0 && numCols.length > 0) {
+          const dc = dateCols[0];
+          numCols.slice(0, 3).forEach(nc => {
+            const byD = {};
+            f.rows.forEach(r => {
+              const d = cl(r[dc]).slice(0, 10);
+              if (d && d.length >= 7) byD[d] = (byD[d] || 0) + num(r[nc]);
+            });
+            const sortedKeys = Object.keys(byD).sort();
+            if (sortedKeys.length > 1) {
+              const firstDay = sortedKeys[0];
+              const lastDay = sortedKeys[sortedKeys.length - 1];
+              const firstVal = byD[firstDay];
+              const lastVal = byD[lastDay];
+              const diffPct = firstVal ? ((lastVal - firstVal) / firstVal * 100).toFixed(1) : 0;
+              const direction = diffPct > 0 ? "Increased 📈" : (diffPct < 0 ? "Decreased 📉" : "Stable ➖");
+              trendData[nc] = `${direction} by ${Math.abs(diffPct)}% (from ${fmt(firstVal)} on ${firstDay} to ${fmt(lastVal)} on ${lastDay})`;
+            }
+          });
+        }
+        return {
+          filename: f.name,
+          totalRows: f.rows.length,
+          columns: f.columns,
+          numericColumns: numStats,
+          categoricalBreakdowns: catStats,
+          trendData: trendData,
+          sampleRows: f.rows.slice(0, 5)
+        };
+      });
+    }
+
+    function addMessage(role, text) {
+      const box = document.getElementById('chat-messages');
+      const empty = document.getElementById('chat-empty');
+      if (empty) empty.style.display = 'none';
+      const now = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      div.innerHTML = `
+    <div class="msg-av">${role === 'user' ? 'U' : '🤖'}</div>
+    <div>
+      <div class="msg-bubble">${formatText(text)}</div>
+      <div class="msg-time">${now}</div>
+    </div>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function addTyping() {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'msg ai'; div.id = 'typing-ind';
+      div.innerHTML = '<div class="msg-av">🤖</div><div><div class="msg-bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>';
+      box.appendChild(div); box.scrollTop = box.scrollHeight;
+    }
+    function removeTyping() { const el = document.getElementById('typing-ind'); if (el) el.remove(); }
+
+    function formatText(t) {
+      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.*?)`/g, '<code style="background:var(--surface3);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:11px">$1</code>')
+        .replace(/\n/g, '<br>');
+    }
+
+    async function sendChat() {
+      if (isChatLoading) return;
+      const input = document.getElementById('chat-input');
+      const q = input.value.trim(); if (!q) return;
+      input.value = ''; autoResize(input);
+      addMessage('user', q);
+      chatHistory.push({ role: 'user', content: q });
+      isChatLoading = true;
+      document.getElementById('chat-send').disabled = true;
+      addTyping();
+
+      const dataSummary = getDataSummaryForAI();
+      try {
+        // Offline simulated AI response
+        setTimeout(() => {
+          removeTyping();
+          let reply = generateOfflineAIResponse(q, dataSummary);
+          addMessage('ai', reply);
+          chatHistory.push({ role: 'assistant', content: reply });
+          if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+        }, 600);
+      } catch (e) {
+        removeTyping();
+        addMessage('ai', '⚠️ Error generating offline response.');
+      }
+      isChatLoading = false;
+      document.getElementById('chat-send').disabled = false;
+    }
+
+    function generateOfflineAIResponse(query, summary) {
+      const q = query.toLowerCase();
+      const BR = "\n";
+      const SP2 = "\u00A0\u00A0";
+      const SP4 = "\u00A0\u00A0\u00A0\u00A0";
+      const SP6 = "\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0";
+
+      if (summary.length === 0) {
+        return "No datasets are loaded. Please upload some CSV files first so I can analyze them.";
+      }
+
+      if (q.includes('summary') || q.includes('overview') || q.includes('complete summary')) {
+        let text = "📊 **Complete Data Summary:**" + BR + BR;
+        let totalR = 0;
+        summary.forEach(f => {
+          totalR += f.totalRows;
+          text += "📌 **" + f.filename + "**" + BR;
+          text += SP2 + "• Total Records: **" + f.totalRows.toLocaleString() + "**" + BR;
+          text += SP2 + "• Columns: **" + f.columns.length + "**" + BR;
+
+          const nums = Object.keys(f.numericColumns);
+          if (nums.length > 0) {
+            text += SP2 + "**Numeric Field Totals:**" + BR;
+            nums.forEach(n => {
+              const stats = f.numericColumns[n];
+              text += SP4 + "→ " + n + ": **" + fmt(stats.total) + "** (Avg: " + fmt(stats.avg) + ")" + BR;
+            });
+          }
+
+          const cats = Object.keys(f.categoricalBreakdowns);
+          if (cats.length > 0) {
+            text += SP2 + "**Categorical Breakdowns:**" + BR;
+            cats.forEach(c => {
+              text += SP4 + "• " + c + ":" + BR;
+              f.categoricalBreakdowns[c].slice(0, 5).forEach(item => {
+                text += SP6 + "→ " + (item[0] || 'Unknown') + ": " + item[1] + " count" + BR;
+              });
+            });
+          }
+          text += BR;
+        });
+        text += "📈 **Overall Total:** " + totalR.toLocaleString() + " rows loaded across all files.";
+        return text;
+      }
+
+      if (q.includes('numeric') || q.includes('number')) {
+        let text = "**Numeric Columns Analysis:**" + BR + BR;
+        summary.forEach(f => {
+          const nums = Object.keys(f.numericColumns);
+          if (nums.length) {
+            text += "• **" + f.filename + "**: " + nums.join(', ') + BR;
+            nums.forEach(n => {
+              const stats = f.numericColumns[n];
+              text += SP2 + "→ " + n + " (Total: " + fmt(stats.total) + ", Avg: " + fmt(stats.avg) + ")" + BR;
+            });
+          }
+        });
+        return text.length > 35 ? text : "No numeric columns found in the uploaded data.";
+      }
+
+      if (q.includes('top') || q.includes('largest')) {
+        return "**Top Records:**" + BR + "In Offline Mode, please navigate to the 'File Data' page to sort your tables by numeric columns to view the top records.";
+      }
+
+      if (q.includes('quality') || q.includes('issue') || q.includes('missing')) {
+        return "**Data Quality:**" + BR + "The CSV parser successfully loaded the rows. To check for missings or anomalies, please refer to the Data Table views where missing values are shown as blanks or dashes.";
+      }
+
+      if (q.includes('category') || q.includes('breakdown')) {
+        let text = "**Category Breakdown:**" + BR + BR;
+        summary.forEach(f => {
+          const cats = Object.keys(f.categoricalBreakdowns);
+          if (cats.length) {
+            text += "• **" + f.filename + "**:" + BR;
+            cats.forEach(c => {
+              text += SP2 + "• **" + c + "**:" + BR;
+              f.categoricalBreakdowns[c].slice(0, 5).forEach(item => {
+                text += SP4 + "→ " + (item[0] || 'Unknown') + ": " + item[1] + " count" + BR;
+              });
+            });
+            text += BR;
+          }
+        });
+        return text.length > 30 ? text : "No categorical columns found.";
+      }
+
+      if (q.includes('trend')) {
+        let text = "📈 **Trend Analysis (Numeric fields over Date):**" + BR + BR;
+        let found = false;
+        summary.forEach(f => {
+          const trends = Object.keys(f.trendData || {});
+          if (trends.length) {
+            found = true;
+            text += "• **" + f.filename + "**:" + BR;
+            trends.forEach(tc => {
+              text += SP4 + "→ " + tc + " Trend: " + f.trendData[tc] + BR;
+            });
+          }
+        });
+        return found ? text : "No date columns available to perform trend analysis.";
+      }
+
+      if (q.includes('hi ') || q.includes('hello')) {
+        return "Hello! I am your Offline Analyst. I can provide summaries, numeric details, and category breakdowns. Try clicking one of the Quick Questions!";
+      }
+
+      return "I'm currently running in **Offline Mode**. I don't have full conversational AI enabled. However, I can still provide basic summaries, numeric column totals, and category breakdowns. Please click the Quick Questions on the side!";
+    }
+
+    function quickAsk(q) { document.getElementById('chat-input').value = q; sendChat(); }
+    function clearChat() {
+      chatHistory = [];
+      document.getElementById('chat-messages').innerHTML = '<div class="chat-empty" id="chat-empty"><div class="chat-empty-icon">🤖</div><div class="chat-empty-text">Ask me anything about your uploaded CSVs.<br>I analyze all files you\'ve loaded.</div></div>';
+    }
+    function chatKeydown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
+    function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 90) + 'px'; }
+
+    boot();
+  </script>
+</body>
+
+</html>
+
