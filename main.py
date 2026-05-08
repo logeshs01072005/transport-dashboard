@@ -3,10 +3,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import os
 
 app = FastAPI()
 
-# Store data in memory (simple)
+# ✅ Fix path for Render (IMPORTANT)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Store data in memory
 stored_data = []
 
 # CORS
@@ -17,12 +21,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve HTML
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# ✅ Serve static files (FIXED PATH)
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(BASE_DIR, "static")),
+    name="static"
+)
 
+# ✅ Home route (FIXED PATH)
 @app.get("/")
 def home():
-    return FileResponse("static/transport-dashboard.html")
+    return FileResponse(os.path.join(BASE_DIR, "static", "transport-dashboard.html"))
 
 # ✅ POST → Upload file
 @app.post("/upload")
