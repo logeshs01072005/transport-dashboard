@@ -7,7 +7,7 @@ import os
 
 app = FastAPI()
 
-# ✅ Fix path for Render (IMPORTANT)
+# Fix path for Render
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Store data in memory
@@ -21,19 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Serve static files (FIXED PATH)
+# Serve static files
 app.mount(
     "/static",
     StaticFiles(directory=os.path.join(BASE_DIR, "static")),
     name="static"
 )
 
-# ✅ Home route (FIXED PATH)
+# Home route
 @app.get("/")
 def home():
     return FileResponse(os.path.join(BASE_DIR, "static", "transport-dashboard.html"))
 
-# ✅ POST → Upload file
+# POST → Upload file
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
     global stored_data
@@ -55,12 +55,12 @@ async def upload(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
-# ✅ GET → Get all data
+# GET → Get all data
 @app.get("/data")
 def get_data():
     return {"data": stored_data}
 
-# ✅ PUT → Update a row
+# PUT → Update a row
 @app.put("/update/{index}")
 def update_data(index: int, item: dict):
     try:
@@ -69,7 +69,7 @@ def update_data(index: int, item: dict):
     except:
         return {"error": "Invalid index"}
 
-# ✅ DELETE → Delete a row
+# DELETE → Delete a row
 @app.delete("/delete/{index}")
 def delete_data(index: int):
     try:
